@@ -1,0 +1,15 @@
+replicaCount: 1
+
+image:
+  repository: fastapi-app
+  tag: latest
+  pullPolicy: Never
+
+service:
+  type: NodePort
+  port: 80
+  targetPort: 80
+  nodePort: 30080
+
+env:
+  apiKey: dev-secret-key
