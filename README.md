@@ -26,11 +26,11 @@ FastAPI app (Docker) → Kubernetes (Minikube) → Helm chart → Prometheus →
 - Kubernetes liveness health probes on `/health` endpoint
 - Helm chart for repeatable configurable deployments
 - Grafana dashboard showing HTTP request count
-- Ansible playbook for provisioning DevOps tools
+- Ansible playbook for bootstrapping tool dependencies
 
 ## How to Run
 
-Requirements: Docker Desktop, Minikube, kubectl, Helm
+Requirements: Docker Desktop, Minikube, kubectl, Helm, Ansible
 
 ```bash
 git clone https://github.com/KTZMJackie/k8s-observability-platform
