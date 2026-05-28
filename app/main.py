@@ -5,9 +5,9 @@ from fastapi import FastAPI, HTTPException, Header
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from azure.storage.blob import BlobServiceClient
+from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI()
-from prometheus_fastapi_instrumentator import Instrumentator
 Instrumentator().instrument(app).expose(app)
 
 CONTAINER_NAME = "appdata"
