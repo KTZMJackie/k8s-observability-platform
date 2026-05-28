@@ -28,6 +28,6 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: 80
+            port: {{ .Values.service.targetPort }}
           initialDelaySeconds: 10
           periodSeconds: 10
