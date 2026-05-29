@@ -56,6 +56,23 @@ kubectl port-forward deployment/fastapi-release-fastapi 8080:80
 ## Screenshots
 
 ![Grafana Dashboard](screenshots/grafana-dashboard.png)
+
+## Grafana Dashboard
+
+Dashboard JSON is version-controlled at `grafana/fastapi-dashboard.json`.
+
+To import:
+1. Open Grafana → Dashboards → Import
+2. Upload `grafana/fastapi-dashboard.json`
+3. Select your Prometheus data source
+4. Click Import
+
+Panels included:
+- Request Rate (req/s)
+- Request Latency (p50 / p95)
+- Error Rate (5xx)
+- Total Requests by Endpoint
+
 ![Prometheus Targets](screenshots/prometheus-targets.png)
 ![Pods Running](screenshots/kubectl-pods.png)
 ![FastAPI Health](screenshots/fastapi-health.png)
