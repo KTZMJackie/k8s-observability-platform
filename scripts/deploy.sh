@@ -5,6 +5,9 @@ echo '======================================'
 echo ' k8s-observability-platform — Deploy'
 echo '======================================'
 
+: "${GRAFANA_PASSWORD:?Error: GRAFANA_PASSWORD env var is not set}"
+: "${API_KEY:?Error: API_KEY env var is not set}"
+
 if ! minikube status | grep -q 'Running'; then
   echo '[1/6] Starting Minikube...'
   minikube start --driver=docker --memory=3500 --cpus=2
@@ -32,10 +35,11 @@ helm upgrade --install grafana grafana/grafana \
   --namespace monitoring \
   --set service.type=NodePort \
   --set service.nodePort=30030 \
-  --set adminPassword=admin123
+  --set adminPassword="${GRAFANA_PASSWORD}"
 
 echo '[6/6] Deploying FastAPI via Helm...'
-helm upgrade --install fastapi-release ./helm/fastapi-app
+helm upgrade --install fastapi-release ./helm/fastapi-app \
+  --set env.apiKey="${API_KEY}"
 
 MINIKUBE_IP=$(minikube ip)
 echo ''
@@ -45,4 +49,4 @@ echo '======================================'
 echo "FastAPI:    http://${MINIKUBE_IP}:30080"
 echo "Prometheus: http://${MINIKUBE_IP}:30090"
 echo "Grafana:    http://${MINIKUBE_IP}:30030"
-echo "Grafana login: admin / admin123"
+echo "Grafana login: admin / [see GRAFANA_PASSWORD env var]"
