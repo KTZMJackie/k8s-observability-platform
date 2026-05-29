@@ -14,20 +14,20 @@ spec:
       annotations:
         prometheus.io/scrape: 'true'
         prometheus.io/path: '/metrics'
-        prometheus.io/port: '8000'
+        prometheus.io/port: '80'
     spec:
       containers:
-      - name: fastapi-app
-        image: fastapi-app:latest
-        imagePullPolicy: Never
-        ports:
-        - containerPort: 8000
-        env:
-        - name: API_KEY
-          value: 'dev-secret-key'
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 10
-          periodSeconds: 10
+        - name: fastapi-app
+          image: fastapi-app:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+          env:
+            - name: API_KEY
+              value: ""  # Set via Kubernetes Secret in production
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
