@@ -12,4 +12,4 @@ service:
   nodePort: 30080
 
 env:
-  apiKey: dev-secret-key
+  apiKey: ""  # Pass at deploy time: --set env.apiKey=$API_KEY
