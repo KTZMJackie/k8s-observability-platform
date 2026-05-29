@@ -24,7 +24,10 @@ spec:
             - containerPort: 80
           env:
             - name: API_KEY
-              value: ""  # Set via Kubernetes Secret in production
+              valueFrom:
+                secretKeyRef:
+                  name: fastapi-secret
+                  key: api-key
           livenessProbe:
             httpGet:
               path: /health
