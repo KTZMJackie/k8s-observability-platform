@@ -1,20 +1,72 @@
 ---
-- name: Install DevOps tools
+- name: Provision DevOps tooling on target node
   hosts: all
   become: yes
+
+  vars:
+    kubectl_version: "1.29.0"
+    helm_version: "3.14.0"
+
   tasks:
-    - name: Install Docker
+    - name: Update apt cache
       apt:
-        name: docker.io
-        state: present
         update_cache: yes
+        cache_valid_time: 3600
 
-    - name: Install curl
+    - name: Install base packages
       apt:
-        name: curl
+        name:
+          - docker.io
+          - curl
+          - git
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
         state: present
 
-    - name: Install git
-      apt:
-        name: git
-        state: present
+    - name: Ensure Docker service is started and enabled
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add current user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    - name: Download kubectl binary
+      get_url:
+        url: "https://dl.k8s.io/release/v{{ kubectl_version }}/bin/linux/amd64/kubectl"
+        dest: /usr/local/bin/kubectl
+        mode: "0755"
+
+    - name: Download Helm install script
+      get_url:
+        url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+        dest: /tmp/get-helm.sh
+        mode: "0700"
+
+    - name: Install Helm
+      command: /tmp/get-helm.sh
+      args:
+        creates: /usr/local/bin/helm
+
+    - name: Verify kubectl is installed
+      command: kubectl version --client
+      register: kubectl_check
+      changed_when: false
+
+    - name: Verify Helm is installed
+      command: helm version
+      register: helm_check
+      changed_when: false
+
+    - name: Print kubectl version
+      debug:
+        msg: "{{ kubectl_check.stdout }}"
+
+    - name: Print Helm version
+      debug:
+        msg: "{{ helm_check.stdout }}"
