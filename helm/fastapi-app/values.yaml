@@ -13,3 +13,11 @@ service:
 
 env:
   apiKey: ""  # Pass at deploy time: --set env.apiKey=$API_KEY
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "500m"
