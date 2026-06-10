@@ -5,7 +5,39 @@ Demonstrates end-to-end container orchestration, metrics collection, and visuali
 
 ## Architecture
 
-FastAPI app (Docker) → Kubernetes (Minikube) → Helm chart → Prometheus → Grafana
+```mermaid
+graph TD
+    Dev[👩‍💻 Developer] -->|git push| GH[GitHub]
+    GH -->|triggers| CI[GitHub Actions CI]
+    CI -->|pytest 4 tests| T{Tests Pass?}
+    T -->|✅ pass| HL[helm lint]
+    T -->|❌ fail| BLOCK[PR Blocked]
+    HL -->|✅ pass| GREEN[Green Check ✅]
+
+    Dev -->|./scripts/deploy.sh| DS[deploy.sh]
+    DS -->|eval minikube docker-env| MK[Minikube]
+    DS -->|docker build| IMG[fastapi-app:latest]
+    IMG -->|stored in| MKDOCKER[Minikube Docker Daemon]
+
+    MK --> NS1[namespace: default]
+    MK --> NS2[namespace: monitoring]
+
+    NS1 --> SEC[Secret: fastapi-secret\napi-key injected via secretKeyRef]
+    NS1 --> DEP[Deployment\nfastapi-release-fastapi]
+    DEP --> POD[FastAPI Pod :80\nliveness + readiness /health]
+    POD -->|exposes| SVC[Service NodePort :30080]
+
+    NS2 --> PROM[Prometheus :30090\nscrapes /metrics every 15s]
+    NS2 --> GRAF[Grafana :30030\n4 dashboards]
+
+    POD -->|/metrics endpoint| PROM
+    PROM -->|datasource| GRAF
+
+    GRAF --> D1[Request Rate]
+    GRAF --> D2[p50/p95 Latency]
+    GRAF --> D3[Error Rate 5xx]
+    GRAF --> D4[Requests by Endpoint]
+```
 
 ## Tech Stack
 
