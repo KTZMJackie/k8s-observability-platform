@@ -1,3 +1,5 @@
+![CI](https://github.com/KTZMJackie/k8s-observability-platform/actions/workflows/ci.yml/badge.svg)
+
 # k8s-observability-platform
 
 A production-style Kubernetes observability platform running locally on Minikube.
