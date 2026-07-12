@@ -153,6 +153,32 @@ terraform destroy
 | Health check | ![Health](screenshots/Health.png) |
 | Prometheus metrics live | ![Metrics](screenshots/Metrics.png) |
 
+## Alerting & Incident Response
+
+Prometheus alert rules configured for 4 scenarios:
+
+| Alert | Expression | Threshold | Severity |
+|---|---|---|---|
+| HighErrorRate | `rate(http_requests_total{status_code=~"5.."}[5m]) / rate(http_requests_total[5m])` | > 5% for 2m | Warning |
+| HighLatency | `histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))` | > 1s for 2m | Warning |
+| PodNotReady | `kube_pod_status_ready{condition="true"} == 0` | 1m | Critical |
+| PrometheusTargetDown | `up == 0` | 1m | Warning |
+
+Alertmanager routing config in `monitoring/alertmanager-config.yaml` — routes critical alerts separately from warnings.
+
+### Alert Firing Evidence
+
+`PodNotReady` alert triggered by deploying a broken image (`ImagePullBackOff`) — alert moved from PENDING → FIRING within 10 seconds.
+
+![Alerts Inactive](screenshots/alerts-inactive.png)
+![Alert Firing](screenshots/alert-firing.png)
+
+### Incident Runbook
+
+Full runbook with detection → triage → mitigation → root cause → prevention for all 4 alerts: [RUNBOOK.md](RUNBOOK.md)
+
+Includes a postmortem for a simulated CrashLoopBackOff incident — same first-responder discipline used in biotech instrument software release.
+
 ## Local Minikube Deployment
 
 ### How to Run
