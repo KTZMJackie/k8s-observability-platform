@@ -27,3 +27,12 @@ groups:
         annotations:
           summary: "Pod not ready"
           description: "Pod {{ $labels.pod }} has been not ready for 1 minute"
+      
+      - alert: PrometheusTargetDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus scrape target down"
+          description: "Target {{ $labels.job }} at {{ $labels.instance }} is unreachable"
