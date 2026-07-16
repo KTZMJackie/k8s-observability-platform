@@ -1,246 +1,161 @@
-![CI](https://github.com/KTZMJackie/k8s-observability-platform/actions/workflows/ci.yml/badge.svg)
-
 # k8s-observability-platform
 
-A production-style Kubernetes observability platform deployed on both local Minikube and Azure AKS.
-Demonstrates end-to-end container orchestration, metrics collection, and visualisation — provisioned via Terraform.
+![CI](https://github.com/KTZMJackie/k8s-observability-platform/actions/workflows/ci.yml/badge.svg)
+
+A FastAPI service packaged as a Helm chart and deployed two ways: to a managed **Azure Kubernetes Service (AKS)** cluster with a public LoadBalancer, and to a local **Minikube** cluster where the full Prometheus + Grafana observability stack (with custom alerting rules) runs. The same chart runs in both environments.
+
+## What this demonstrates
+
+- Deploying a containerised app to **AKS** from an image in **Azure Container Registry (ACR)**, exposed via an Azure LoadBalancer with a public IP
+- Helm-packaged, repeatable deployments (`fastapi-app` chart)
+- A real observability stack — **Prometheus** scraping app `/metrics`, **Grafana** dashboards, and **custom alerting rules**
+- CI on every push: pytest + `helm lint`, PR blocked on failure
+- Kubernetes liveness/readiness probes, Prometheus auto-instrumentation
 
 ## Architecture
 
 ```mermaid
 graph TD
-    Dev[👩‍💻 Developer] -->|git push| GH[GitHub]
-    GH -->|triggers| CI[GitHub Actions CI]
-    CI -->|pytest 4 tests| T{Tests Pass?}
-    T -->|✅ pass| HL[helm lint]
-    T -->|❌ fail| BLOCK[PR Blocked]
-    HL -->|✅ pass| GREEN[Green Check ✅]
+    Dev[Developer] -->|git push| GH[GitHub]
+    GH -->|CI: pytest + helm lint| GREEN[Green check]
 
-    Dev -->|./scripts/deploy.sh| DS[deploy.sh]
-    DS -->|eval minikube docker-env| MK[Minikube]
-    DS -->|docker build| IMG[fastapi-app:latest]
-    IMG -->|stored in| MKDOCKER[Minikube Docker Daemon]
+    Dev -->|docker build + push| ACR[(ACR: acrk8sobservability\nimage: fastapi-app)]
 
-    MK --> NS1[namespace: default]
-    MK --> NS2[namespace: monitoring]
+    subgraph AKS[Azure Kubernetes Service - southeastasia]
+        ACR -->|image pull| POD[FastAPI Pod\nliveness+readiness /health]
+        POD --> LB[Service: LoadBalancer\npublic IP :80 -> :30080]
+    end
 
-    NS1 --> SEC[Secret: fastapi-secret\napi-key injected via secretKeyRef]
-    NS1 --> DEP[Deployment\nfastapi-release-fastapi]
-    DEP --> POD[FastAPI Pod :80\nliveness + readiness /health]
-    POD -->|exposes| SVC[Service NodePort :30080]
-
-    NS2 --> PROM[Prometheus :30090\nscrapes /metrics every 15s]
-    NS2 --> GRAF[Grafana :30030\n4 dashboards]
-
-    POD -->|/metrics endpoint| PROM
-    PROM -->|datasource| GRAF
-
-    GRAF --> D1[Request Rate]
-    GRAF --> D2[p50/p95 Latency]
-    GRAF --> D3[Error Rate 5xx]
-    GRAF --> D4[Requests by Endpoint]
+    subgraph LOCAL[Minikube - local observability]
+        POD2[FastAPI Pod] -->|/metrics| PROM[Prometheus]
+        PROM --> GRAF[Grafana: Request Rate dashboard]
+        PROM --> ALERTS[Alert rules:\nHighErrorRate, HighLatency,\nPodNotReady, PrometheusTargetDown]
+    end
 ```
+
+## Environments
+
+| | AKS (cloud) | Minikube (local) |
+|---|---|---|
+| Cluster | Managed AKS, region Southeast Asia, K8s v1.33.6, VMSS node pool (Ubuntu 22.04) | Single-node Minikube |
+| App | `fastapi-release` (Helm chart `fastapi-app-0.1.0`) | Same chart |
+| Exposure | `LoadBalancer` service, public IP, `80 -> 30080` | NodePort |
+| Registry | Image pulled from ACR `acrk8sobservability` | Built into Minikube's Docker daemon |
+| Observability | app `/metrics` exposed publicly | **Full Prometheus + Grafana + alerting stack** |
 
 ## Tech Stack
 
 | Layer | Tool |
 |---|---|
-| App | Python FastAPI + Docker |
-| Orchestration | Kubernetes (Minikube + AKS) |
-| IaC | Terraform |
-| Packaging | Helm 3 |
+| Orchestration | **Azure Kubernetes Service (AKS)** + Minikube (local) |
 | Registry | Azure Container Registry (ACR) |
-| Metrics | Prometheus |
-| Dashboard | Grafana |
-| CI/CD | GitHub Actions |
-| Automation | Bash scripts |
-| Config management | Ansible |
+| App | Python FastAPI + Docker |
+| Packaging | Helm 3 (`fastapi-app` chart) |
+| Metrics | Prometheus (prometheus-fastapi-instrumentator) |
+| Dashboards | Grafana |
+| Alerting | Prometheus alerting rules (`alerting_rules.yml`) |
+| Automation | Bash deploy scripts, Ansible |
+| CI | GitHub Actions (pytest + helm lint) |
 
-## Key Features
-
-- One-command local deployment via `./scripts/deploy.sh`
-- Full AKS deployment via Terraform IaC in `infra/`
-- ACR integration with AKS via Managed Identity (no credentials)
-- Auto-instrumented metrics via prometheus-fastapi-instrumentator
-- Kubernetes liveness and readiness probes on `/health`
-- Helm chart for repeatable configurable deployments
-- Grafana dashboard showing HTTP request count, latency, error rate
-- Ansible playbook for bootstrapping DevOps tool dependencies
-- Kubernetes Secret for API key injection via `secretKeyRef`
-
-## AKS Deployment (Azure Kubernetes Service)
-
-This project has been deployed to a production AKS cluster on Azure, provisioned via Terraform.
-
-### AKS Architecture
-
-```mermaid
-graph TD
-    Dev[👩‍💻 Developer] -->|terraform apply| TF[Terraform]
-    TF --> RG[Resource Group\nrg-k8s-observability]
-    RG --> AKS[AKS Cluster\naks-k8s-observability v1.33.6]
-    RG --> ACR[Azure Container Registry\nacrk8sobservability]
-    RG --> LAW[Log Analytics Workspace\nContainer Insights]
-
-    Dev -->|az acr build| ACR
-    ACR -->|AcrPull via Managed Identity| AKS
-
-    Dev -->|helm upgrade --install| AKS
-    AKS --> POD[FastAPI Pod\n1/1 Running]
-    POD -->|LoadBalancer| LB[Public IP: 20.197.65.33]
-    POD -->|/metrics| PROM[Prometheus]
-    PROM --> GRAF[Grafana]
-```
-### Infrastructure (Terraform)
-
-All AKS infrastructure is provisioned via Terraform in `infra/`:
-
-| Resource | Name | Purpose |
-|---|---|---|
-| Resource Group | rg-k8s-observability | Container for all resources |
-| AKS Cluster | aks-k8s-observability | Managed Kubernetes (v1.33.6) |
-| ACR | acrk8sobservability | Container image registry |
-| Log Analytics Workspace | law-k8s-observability | Container Insights monitoring |
-| Role Assignment | AcrPull | AKS pulls from ACR via Managed Identity — no credentials |
-
-### Deploy to AKS
+## Deploy to AKS
 
 ```bash
-# 1. Provision infrastructure
-cd infra/
-terraform init
-terraform apply
+# Create cluster + ACR (one-time)
+az group create --name [rg-name] --location southeastasia
+az acr create --resource-group [rg-name] --name acrk8sobservability --sku Basic
+az aks create \
+  --resource-group [rg-name] \
+  --name aks-k8s-observability \
+  --node-count 1 \
+  --attach-acr acrk8sobservability \
+  --generate-ssh-keys
 
-# 2. Connect kubectl to AKS
-az aks get-credentials \
-  --resource-group rg-k8s-observability \
-  --name aks-k8s-observability
+# Build + push image to ACR
+az acr build --registry acrk8sobservability --image fastapi-app:v1 ./app
 
-# 3. Build and push image to ACR
-az acr build \
-  --registry acrk8sobservability \
-  --image fastapi-app:latest ./app
-
-# 4. Deploy via Helm
+# Connect and deploy
+az aks get-credentials --resource-group [rg-name] --name aks-k8s-observability
 helm upgrade --install fastapi-release ./helm/fastapi-app \
   --set image.repository=acrk8sobservability.azurecr.io/fastapi-app \
-  --set image.tag=latest \
-  --set image.pullPolicy=Always \
-  --set env.apiKey="${API_KEY}" \
   --set service.type=LoadBalancer
 
-# 5. Verify
-kubectl get nodes
-kubectl get pods
-kubectl get svc
-
-# 6. Teardown (stops billing)
-cd infra/
-terraform destroy
+kubectl get svc fastapi-release-service   # note the EXTERNAL-IP
 ```
 
-### AKS Deployment Screenshots
+Verify (values from a live deployment):
 
-| What | Screenshot |
-|---|---|
-| AKS node Ready (v1.33.6) | ![Nodes](screenshots/Nodes.png) |
-| Pod Running 1/1 | ![Pods](screenshots/Pods.png) |
-| LoadBalancer with public IP | ![Service](screenshots/Svc.png) |
-| Helm release deployed | ![Helm](screenshots/Helm.png) |
-| AKS cluster info | ![Cluster](screenshots/Cluster_Info.png) |
-| ACR image pushed | ![ACR](screenshots/ACR_Image.png) |
-| Live endpoint response | ![Live](screenshots/Live.png) |
-| Health check | ![Health](screenshots/Health.png) |
-| Prometheus metrics live | ![Metrics](screenshots/Metrics.png) |
+```
+$ kubectl get nodes
+NAME                            STATUS   VERSION
+aks-default-10199626-vmss000000 Ready    v1.33.6
 
-## Alerting & Incident Response
+$ kubectl get svc fastapi-release-service
+NAME                     TYPE           EXTERNAL-IP     PORT(S)
+fastapi-release-service  LoadBalancer   20.197.65.33    80:30080/TCP
 
-Prometheus alert rules configured for 4 scenarios:
+$ curl http://20.197.65.33/health
+{"status":"healthy"}
+```
 
-| Alert | Expression | Threshold | Severity |
-|---|---|---|---|
-| HighErrorRate | `rate(http_requests_total{status_code=~"5.."}[5m]) / rate(http_requests_total[5m])` | > 5% for 2m | Warning |
-| HighLatency | `histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))` | > 1s for 2m | Warning |
-| PodNotReady | `kube_pod_status_ready{condition="true"} == 0` | 1m | Critical |
-| PrometheusTargetDown | `up == 0` | 1m | Warning |
+## Local development + observability (Minikube)
 
-Alertmanager routing config in `monitoring/alertmanager-config.yaml` — routes critical alerts separately from warnings.
-
-### Alert Firing Evidence
-
-`PodNotReady` alert triggered by deploying a broken image (`ImagePullBackOff`) — alert moved from PENDING → FIRING within 10 seconds.
-
-![Alerts Inactive](screenshots/alerts-inactive.png)
-![Alert Firing](screenshots/alert-firing.png)
-
-### Incident Runbook
-
-Full runbook with detection → triage → mitigation → root cause → prevention for all 4 alerts: [RUNBOOK.md](RUNBOOK.md)
-
-Includes a postmortem for a simulated CrashLoopBackOff incident — same first-responder discipline used in biotech instrument software release.
-
-## Local Minikube Deployment
-
-### How to Run
-
-Requirements: Docker Desktop, Minikube, kubectl, Helm, Ansible
+Zero cloud cost. Brings up the app **and** the full monitoring stack.
 
 ```bash
-git clone https://github.com/KTZMJackie/k8s-observability-platform
-cd k8s-observability-platform
+export GRAFANA_PASSWORD=... API_KEY=...
 chmod +x scripts/deploy.sh
-export GRAFANA_PASSWORD=yourpassword
-export API_KEY=yourapikey
 ./scripts/deploy.sh
 ```
 
-Then access via port-forward:
+The script starts Minikube, builds the image, installs Prometheus and Grafana via Helm, and deploys the app. Then:
 
 ```bash
-kubectl port-forward deployment/fastapi-release-fastapi 8080:80
+kubectl port-forward -n monitoring svc/grafana 3000:3000
+kubectl port-forward -n monitoring svc/prometheus-server 9090:80
 ```
 
-## API Endpoints
+## Observability
 
-| Endpoint | Description |
-|---|---|
-| GET / | Service status |
-| GET /health | Health check for Kubernetes liveness probe |
-| GET /metrics | Prometheus metrics endpoint |
+**Prometheus** scrapes the app's `/metrics` endpoint (auto-instrumented: `http_requests_total`, request latency, sizes, Python/process metrics).
 
-## Scripts
+**Grafana** — the version-controlled `Request Rate` dashboard (`grafana/fastapi-dashboard.json`) shows HTTP request count and total requests by endpoint/status. Import via Dashboards → Import → select the Prometheus datasource.
 
-| Script | Purpose |
-|---|---|
-| `scripts/deploy.sh` | Spin up full local stack (Minikube + Helm) |
-| `scripts/healthcheck.sh` | HTTP health check all services with exit codes |
-| `scripts/cluster-status.sh` | Full kubectl + Helm cluster state overview |
-| `scripts/cleanup.sh` | Tear down full stack cleanly |
+**Alerting** — custom rules in `alerting_rules.yml`, evaluated by Prometheus:
+
+| Alert | Condition | Severity |
+|---|---|---|
+| `HighErrorRate` | elevated 5xx rate | warning |
+| `HighLatency` | request latency over threshold | warning |
+| `PodNotReady` | `kube_pod_status_ready{condition="true"} == 0` for 1m | critical |
+| `PrometheusTargetDown` | a scrape target is down | critical |
 
 ## Screenshots
 
-![Grafana Dashboard](screenshots/grafana-dashboard.png)
+- `screenshots/aks-cluster-info.png` — AKS control plane + nodes
+- `screenshots/aks-loadbalancer.png` — public IP serving `/health`
+- `screenshots/grafana-request-rate.png` — Grafana dashboard
+- `screenshots/prometheus-alerts.png` — firing/inactive alert rules
 
-## Grafana Dashboard
+## CI
 
-Dashboard JSON is version-controlled at `grafana/fastapi-dashboard.json`.
-
-To import:
-1. Open Grafana → Dashboards → Import
-2. Upload `grafana/fastapi-dashboard.json`
-3. Select your Prometheus data source
-4. Click Import
-
-Panels included:
-- Request Rate (req/s)
-- Request Latency (p50 / p95)
-- Error Rate (5xx)
-- Total Requests by Endpoint
-
-![Prometheus Targets](screenshots/prometheus-targets.png)
-![Pods Running](screenshots/kubectl-pods.png)
-![FastAPI Health](screenshots/fastapi-health.png)
+GitHub Actions runs `pytest` and `helm lint` on every push and pull request; failures block the PR.
 
 ## Author
 
-Built as part of a hands-on DevOps/cloud engineering portfolio targeting Azure DevOps and Cloud Engineer roles in Singapore.
+Cloud / DevOps engineer — AZ-104 certified. github.com/KTZMJackie
+
+---
+
+<!--
+TODO before publishing — keep this honest:
+1. Commit the AKS path so it's reproducible: an `scripts/deploy-aks.sh` (the az/helm commands above)
+   OR a short "AKS deployment" doc. Right now scripts/deploy.sh is Minikube-only.
+2. Fix the app's root message — it still says "Azure Container Apps"; on AKS it should say
+   "Azure Kubernetes Service (AKS)" so it matches where it actually runs.
+3. Confirm: does the Prometheus/Grafana stack also run on AKS, or only Minikube? The README says
+   observability = Minikube. If you also ran it on AKS, update the Environments table.
+4. Update repo Description + Topics:
+   Description: "FastAPI on Azure AKS (Minikube for local dev + observability): Helm, Prometheus,
+   Grafana, custom alerting. Image in ACR, exposed via LoadBalancer."
+   Topics: aks, azure, acr, kubernetes, helm, prometheus, grafana, observability, alerting, devops, fastapi
+-->
