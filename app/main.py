@@ -24,7 +24,7 @@ def verify_api_key(x_api_key: str | None):
 def root():
     return {
         "status": "ok",
-        "message": "Hello from FastAPI on Azure Container Apps - CI/CD live"
+        "message": "Hello from FastAPI on Azure Kubernetes Service (AKS) - CI/CD live"
     }
 
 
