@@ -145,17 +145,3 @@ GitHub Actions runs `pytest` and `helm lint` on every push and pull request; fai
 Cloud / DevOps engineer — AZ-104 certified. github.com/KTZMJackie
 
 ---
-
-<!--
-TODO before publishing — keep this honest:
-1. Commit the AKS path so it's reproducible: an `scripts/deploy-aks.sh` (the az/helm commands above)
-   OR a short "AKS deployment" doc. Right now scripts/deploy.sh is Minikube-only.
-2. Fix the app's root message — it still says "Azure Container Apps"; on AKS it should say
-   "Azure Kubernetes Service (AKS)" so it matches where it actually runs.
-3. Confirm: does the Prometheus/Grafana stack also run on AKS, or only Minikube? The README says
-   observability = Minikube. If you also ran it on AKS, update the Environments table.
-4. Update repo Description + Topics:
-   Description: "FastAPI on Azure AKS (Minikube for local dev + observability): Helm, Prometheus,
-   Grafana, custom alerting. Image in ACR, exposed via LoadBalancer."
-   Topics: aks, azure, acr, kubernetes, helm, prometheus, grafana, observability, alerting, devops, fastapi
--->
