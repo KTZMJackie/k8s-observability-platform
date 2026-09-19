@@ -145,3 +145,30 @@ GitHub Actions runs `pytest` and `helm lint` on every push and pull request; fai
 Cloud / DevOps engineer — AZ-104 certified. github.com/KTZMJackie
 
 ---
+
+## Security scanning (DevSecOps)
+
+Security checks run in CI on every push and PR, alongside the `pytest` + `helm lint` quality gates:
+
+| Scan | Tool | Checks |
+|------|------|--------|
+| SAST | CodeQL | Static analysis of the Python source |
+| SCA + IaC | Trivy (fs) | Vulnerable dependencies + Helm/K8s misconfigurations |
+| Container image | Trivy (image) | Vulnerabilities in the built image and base OS |
+| Secrets | gitleaks | Credentials committed to git history |
+
+Scans run report-only today (results in the **Security** tab); setting `exit-code: '1'`
+turns any scan into a build gate. DAST is out of scope for this local demo — it needs a
+deployed running instance.
+
+## Production hardening roadmap
+
+Deliberate scope choices for a local-first demo, with the production path noted:
+
+- **Metrics persistence** — Prometheus uses ephemeral storage; prod would use a
+  PersistentVolume with retention, and Thanos/managed storage for long-term history + HA.
+- **High availability** — single Prometheus today; prod would run redundant replicas so
+  the monitoring itself isn't a single point of failure.
+- **SLO-based alerting** — current alerts are static thresholds; next step is error-budget
+  burn-rate alerting.
+- **DAST** — dynamic scanning (e.g. OWASP ZAP) against a deployed staging instance.
