@@ -1,6 +1,7 @@
 # k8s-observability-platform
 
 ![CI](https://github.com/KTZMJackie/k8s-observability-platform/actions/workflows/ci.yml/badge.svg)
+![Security](https://github.com/KTZMJackie/k8s-observability-platform/actions/workflows/security.yml/badge.svg)
 
 A FastAPI service packaged as a Helm chart and deployed two ways: to a managed **Azure Kubernetes Service (AKS)** cluster with a public LoadBalancer, and to a local **Minikube** cluster where the full Prometheus + Grafana observability stack (with custom alerting rules) runs. The same chart runs in both environments.
 
